@@ -9,12 +9,13 @@ The code and csv files in this repository can be used to replicate all of the an
 ## Data
 Raw data (behavioral videos) are available upon request.
 
-This folder contains the following csv files
-* lab data: 
-* GF assay 7: 
-* GF assay 3: 
-* 2AC data: 
-* ID data: 
+This folder contains the following csv files:
+* lab_data: group sizes measured 20 minutes after a routine feeding
+* GF_data_20240403: results from all the group feeding assays (3 & 7-days food-deprived)
+* 2AC_choice_data_20240414: results from all 2-alternative choice assays (3 & 7-days food-deprived)
+  * blank cells are missing data because it could not be analyzed
+  * labels from the paper: asw+anemone = ATW
+* SFID_individual_differences_data_20240403: data from the individual differences experiment, with unique identifiers for each animal (Animal_ID) that was tested multiple times
 
 ## Analysis
 This folder contains the following R scripts:
