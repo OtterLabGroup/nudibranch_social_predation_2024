@@ -6,25 +6,331 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#### user modification
+repo_directory = "D:/public_repos" #set the directory to the location of the cloned repository
+####
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_knit$set(root.dir = repo_directory)
+#getwd()
+
+library(dplyr)
+library(rstatix)
+library(emmeans)
+library(tidyr)
+library(multimode)
+library(lme4)
+library(rptR)
 ```
 
-## R Markdown
+## Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This Rmarkdown document is for reproducing the statistical analyses used in the paper "Social predation in a nudibranch mollusc" (2024). Each section will be named in accordance with the results
+section of the paper where the statistical test was used. Required data folders are located in the repository data file.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r, include = FALSE}
+lab_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\lab_data.csv")
+GF_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\GF_data_20240403.csv")
+choice_data_binom <- read.csv(".\\nudibranch_social_predation_2024\\analysis\\2AC_binomial_test_results_FDL7_20240410.csv")
+choice_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\2AC_choice_data_20240414.csv")
+latency_7 <- read.csv(".\\nudibranch_social_predation_2024\\data\\2AC_latency_7_20240507.csv")
+ID_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\SFID_individual_differences_data_20240403.csv")
 ```
 
-## Including Plots
+The p-values for the models are calculated in the R scripts for the models and will not be replicated here.
 
-You can also embed plots, for example:
+## Results
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Berghia fed in groups more than expected by random chance
+
+To test whether the slugs distribute evenly between two offered anemones during routine feeding, we compared the proportion of slugs in the larger group to 0.5.
+
+Data Visualization:
+
+```{r}
+head(lab_data)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+We need to calculate the proportions of feeding slugs in the larger group.
+
+*Summary statistics*
+
+```{r, echo = FALSE}
+lab_data <- lab_data %>%
+  mutate(prop = group_size_1/(num_berghia-num_not_feeding))
+
+summary(lab_data$prop)
+```
+
+First, we checked the assumptions for a one sample t-test:
+
+-   sample size = `r nrow(lab_data)` ; less than 30
+-   Shapiro-Wilk normality test: `r shapiro.test(lab_data$prop)` ; the data is not normally distributed
+
+We will use a nonparametric one-sample Wilcoxon signed-rank test to test whether the experimental mean is significantly different than 0.5.
+
+```{r, echo = TRUE}
+wilcox.test(lab_data$prop, mu = 0.5, alternative = "two.sided")
+```
+
+We also calculated the effect size:
+
+```{r, echo = TRUE}
+lab_data %>% wilcox_effsize(prop ~ 1, mu = 0.5, alternative = "greater")
+```
+
+To test whether slugs choose to feed together given the option to feed separately, we presented 8 slugs with 8 anemones and measured group sizes. The comparison to null models and p-value generation
+are in the GF_analysis script provided.
+
+*Summary statistics*
+
+Max group size:
+
+```{r}
+summary(GF_data$max_group_size[GF_data$Food_Deprivation_Length == 7])
+```
+
+Mean group size:
+
+```{r}
+summary(GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 7])
+```
+
+### *Berghia* did not use the presence of feeding conspecifics or slime trails to select anemones to feed on & *Berghia* did not prefer anemones that have been injured
+
+In the 2AC_analysis script provided, the binomial test was used to compare the proportion of slugs that chose the manipulated anemone to random chance (0.5).
+
+```{r}
+choice_data_binom %>% filter(total_trial > 14)
+```
+
+We also compared the latency to select an anemone for slugs that chose the manipulated anemone vs. slugs that chose the control anemone using a three-way ANOVA
+
+*Summary statistics*
+
+```{r}
+latency_7 %>%
+  dplyr::group_by(Choice_1, Acclimation) %>%
+  mutate(total_trial = n()) %>%
+  filter(latency_2_choose != 0) %>%
+  filter(total_trial > 14) %>%
+  mutate(Manipulation = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST",
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Slime_Trail" ~ "ST")) %>%
+  dplyr::group_by(Choice, Manipulation, Acclimation) %>%
+  summarise(min_latency = min(latency_2_choose),
+            median_latency = median(latency_2_choose),
+            mean_latency = mean(latency_2_choose),
+            max_latency = max(latency_2_choose))
+```
+
+Due to the large ranges, we log-normalized the data.
+
+```{r, echo = FALSE}
+latency_7 %>%
+  dplyr::group_by(Choice_1, Acclimation) %>%
+  mutate(total_trial = n()) %>%
+  filter(latency_2_choose != 0) %>%
+  filter(total_trial > 14) %>%
+  mutate(Manipulation = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST",
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Slime_Trail" ~ "ST"),
+         latency_trans = log10(latency_2_choose)) %>%
+  dplyr::group_by(Choice, Manipulation, Acclimation) %>%
+  summarise(min_latency = min(latency_trans),
+            median_latency = median(latency_trans),
+            mean_latency = mean(latency_trans),
+            max_latency = max(latency_trans))
+```
+
+Then we used a three-way ANOVA:
+
+```{r}
+lat_7 <- latency_7 %>%
+  dplyr::group_by(Choice_1, Acclimation) %>%
+  mutate(total_trial = n()) %>%
+  ungroup() %>%
+  filter(latency_2_choose != 0) %>%
+  filter(total_trial > 14) %>%
+  mutate(Manipulation = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST",
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Slime_Trail" ~ "ST"),
+         latency_trans = log10(latency_2_choose)) %>%
+  mutate(Acclimation = case_match(Acclimation, 
+                                   "asw+anemone" ~ "ATW",
+                                  "asw" ~ "ASW")) %>%
+  mutate(Manipulation = factor(Manipulation),
+         Acclimation = factor(Acclimation),
+         Choice = factor(Choice)) %>%
+  filter(!is.na(latency_trans))
+
+latency_anova = aov(lat_7$latency_trans ~ lat_7$Acclimation * lat_7$Manipulation * lat_7$Choice)
+
+summary(latency_anova)
+```
+
+There was a significant effect of manipulation and acclimation on the latency to choose, and there was a significant interaction between acclimation and the anemone chosen.
+
+*Post-hoc tests*
+
+Manipulation
+
+```{r}
+lat_anova = aov(lat_7$latency_trans ~ lat_7$Manipulation * lat_7$Choice)
+
+lat_main_effects <- emmeans(lat_anova, ~ Manipulation)
+pairs(lat_main_effects, adjust='tukey')
+```
+
+Acclimation
+
+```{r}
+lat_anova = aov(lat_7$latency_trans ~ lat_7$Acclimation * lat_7$Choice)
+
+lat_main_effects <- emmeans(lat_anova, ~ Acclimation)
+pairs(lat_main_effects, adjust='tukey')
+```
+
+To test whether slugs preferentially selected the larger anemones, a nested ANOVA was used to compare the mean difference in the chosen anemone diameter from the anemone that was not chosen to 0. We
+also tested for an effect of anemone manipulation.
+
+```{r}
+size <- choice_data %>%
+  select(Choice_1, Choice, Acclimation, radius_chosen, radius_other) %>%
+  mutate(manip = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST",
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Slime_Trail" ~ "ST"),
+         Acclimation = case_match(Acclimation, 
+                                   "asw+anemone" ~ "ATW",
+                                  "asw" ~ "ASW")) %>%
+  mutate(Manipulation = factor(manip),
+         Choice = factor(Choice))%>%
+  mutate(diameter_chosen = 2 * radius_chosen,
+           diameter_other = 2 * radius_other) %>%
+    mutate(diameter_diff = diameter_chosen - diameter_other)
+
+size_aov_1 <- aov(size$diameter_diff ~ size$Manipulation)
+# summary(size_aov_1)
+
+size_aov_2 <- aov(size$diameter_diff ~ 0)
+# summary(size_aov_2)
+
+anova(size_aov_2, size_aov_1)
+```
+
+There was no significant difference between the size of the anemones chosen and the anemones that were not chosen.
+
+### Social predation was not facilitated by intermediate levels of food-deprivation
+
+To analyze the same data as above in 3-day food-deprived animals, first we get summary statistics for the group sizes during the group feeding assay (GF).
+
+*Summary statistics*
+
+Max group size:
+
+```{r}
+summary(GF_data$max_group_size[GF_data$Food_Deprivation_Length == 3])
+```
+
+Mean group size:
+
+```{r}
+summary(GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 3])
+```
+
+The mean and max group sizes were compared between the 7-day food-deprived data set and the 3-days food-deprived data set using a t-test.
+
+*Mean group size*
+
+```{r}
+t.test(x = GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 3],
+       y = GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 7],
+       alternative = "two.sided")
+```
+
+*Max group size*
+
+```{r}
+t.test(x = GF_data$max_group_size[GF_data$Food_Deprivation_Length == 3],
+       y = GF_data$max_group_size[GF_data$Food_Deprivation_Length == 7],
+       alternative = "two.sided")
+```
+
+### *Berghia* did not show consistent individual preferences to feed in groups
+
+To test whether *Berghia* had individually consistent preferences to feed socially or alone, we first tested slugs in the GF assay and recorded whether they fed alone or not and then tested them 4
+times in a 2 alternative choice-assay, each at 7-days food-deprived.
+
+We were able to calculate the number of times each animal selected the social option (using 1 to represent that choice and 0 to represent selecting the non-social option.
+
+```{r}
+ID_data_1 <- ID_data %>%
+  pivot_wider(id_cols = c(Animal, Circular_configuration), names_from = trial_2AC, names_prefix = "T_", values_from = choice) %>%
+  mutate(sum1_4 = rowSums(dplyr::select(., starts_with("T_"))),
+         prop_1 = sum1_4/4) %>%
+  na.omit()%>%
+  dplyr::select(Circular_configuration, sum1_4) %>%
+  dplyr::mutate(chose_0 = 4-sum1_4) %>%
+  dplyr::group_by(Circular_configuration) %>%
+  summarise(chose_1 = sum(sum1_4),
+            chose_0 = sum(chose_0))
+```
+
+Then we used a Fisher's exact test to test whether the choice to feed socially in the GF assay was predictive of how many times an animal would select the social option in the 2-alternative choice
+assays.
+
+```{r}
+fisher.test(ID_data_1)
+```
+
+Additionally, if the animals consistently chose socially or non-socially then the distribution of these totals would be bimodal. Thus, we used the bimodality tests from the `multimode` package in R.
+
+```{r, echo = TRUE}
+ID_data1 <- ID_data %>%
+  pivot_wider(id_cols = c(Animal, Circular_configuration), names_from = trial_2AC, names_prefix = "T_", values_from = choice) %>%
+  mutate(sum1_4 = rowSums(dplyr::select(., starts_with("T_"))),
+         prop_1 = sum1_4/4) %>%
+  na.omit()
+
+modetest(ID_data1$sum1_4, method = "SI")
+modetest(ID_data1$sum1_4)
+modetest(ID_data1$sum1_4, method = "HY")
+modetest(ID_data1$sum1_4, method = "FM") #only one that indicated more than 1 mode
+modetest(ID_data1$sum1_4, method = "HH")
+```
+
+We used every `modetest` method available in the `multimode` package. And all but one indicated the data was unimodal.
+
+We also tested the repeatability of their choices in the 2-alternative choice assays.
+
+```{r}
+ID_data5 <- ID_data1 %>%
+  dplyr::select(-c(sum1_4, prop_1)) %>%
+  pivot_longer(cols = starts_with("T_"), names_to = "trial", values_to = "choice")
+
+null_model <- glmer(choice ~ 1 + (1|Animal), family = binomial, data = ID_data5)
+summary(null_model)
+model <- glmer(choice ~ as.factor(Circular_configuration) + (1|Animal), family = binomial, data = ID_data5)
+summary(model)
+
+rpt(choice ~ as.factor(Circular_configuration) + (1|Animal),
+    grname = "Animal",
+    data = ID_data5, datatype = "Binary", nboot = 100, 
+    npermut = 0, adjusted = FALSE)
+```

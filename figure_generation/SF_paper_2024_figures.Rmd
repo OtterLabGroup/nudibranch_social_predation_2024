@@ -6,25 +6,392 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+#### user modification
+repo_directory = "D:/public_repos" #set the directory to the location of the cloned repository
+####
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+knitr::opts_knit$set(root.dir = repo_directory)
+
+library(ggplot2)
+library(scales)
+library(cowplot)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+# library(rstatix)
 ```
 
-## R Markdown
+## Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This Rmarkdown document is for reproducing the figures from the paper "Social predation in a nudibranch mollusc" (2024). Each section will be named in accordance with the figure from the paper where
+the statistical test was used. The legend text accompanies each panel.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Required data folders are located in the repository data file and the simulated data is in the repository analysis folder.
 
-```{r cars}
-summary(cars)
+```{r import data, include = FALSE}
+lab_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\lab_data.csv")
+GF_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\GF_data_20240403.csv")
+GF_simu_7 <- read.csv(".\\nudibranch_social_predation_2024\\analysis\\FDL7_GF_simulated_data_equal_20240509.csv")
+GF_simu_3 <- read.csv(".\\nudibranch_social_predation_2024\\analysis\\FDL3_GF_simulated_data_equal_20240509.csv")
+choice_data_binom <- read.csv(".\\nudibranch_social_predation_2024\\analysis\\2AC_binomial_test_results_FDL7_20240410.csv")
+choice_data_binom_FDL3 <- read.csv(".\\nudibranch_social_predation_2024\\analysis\\2AC_binomial_test_results_FDL3_20240410.csv")
+choice_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\2AC_choice_data_20240414.csv")
+latency_7 <- read.csv(".\\nudibranch_social_predation_2024\\data\\2AC_latency_7_20240507.csv")
+ID_data <- read.csv(".\\nudibranch_social_predation_2024\\data\\SFID_individual_differences_data_20240403.csv")
 ```
 
-## Including Plots
+#### Figure theme:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r fig theme, echo = TRUE}
+figure_theme <- function(){
+  font <- "sans"   #assign font family up front
+  theme_minimal() %+replace%    #replace elements we want to change
+    theme(
+      #background
+      panel.background = element_rect(fill='white', color = NA),
+      plot.background = element_rect(fill='white', color=NA), 
+      #grid elements
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line = element_line(color = "black"),
+      axis.ticks = element_line(color = "black"),
+      plot.title = element_text(hjust = 0.5),
+      #text elements
+      text = element_text(size = 7),
+      axis.title.y = element_text(             #axis titles
+        color = "black",
+        family = font,
+        size = 8,
+        angle = 90,
+        vjust = 1.5),               #font size
+      axis.title.x = element_text(             #axis titles
+        color = "black",
+        family = font,
+        size = 8),               #font size
+      axis.text = element_text( #axis text
+        color = "black",
+        family = font,
+        size = 7)               #font size
+    )
+}
+theme_set(figure_theme())
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+### Fig. 1 *Berghia stephanieae* form
+
+groups larger than if they each selected an anemone independently of each other
+
+```{r fig.1c}
+lab_data %>%
+  mutate(prop = group_size_1/(num_berghia-num_not_feeding)) %>%
+  ggplot(aes(x = "", y = prop)) +
+  geom_boxplot() +
+  geom_jitter(height = 0, alpha = 0.8, size = 0.5) +
+  coord_cartesian(ylim = c(0,1)) +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
+  stat_summary(fun = base::mean, geom = "errorbar", aes(ymax = after_stat(y), ymin = after_stat(y)), color = "purple",  width = 0.75, linetype = "longdash") +
+  labs(x = NULL, y = "proportion", title = NULL) +
+  theme(axis.ticks.x = element_blank())
+```
+
+**C** A boxplot of the proportion of slugs feeding on one of the two provided anemones. The slugs did not distribute evenly between the two anemones and tended to form large groups around one of them
+(Z = 231, p = 0.0000258). Purple line represents the mean. Red dashed line represents even distribution between the anemones.
+
+```{r Fig.1e}
+mean_7_null_only <- ggplot(GF_simu_7[GF_simu_7$model == "equal",], aes(y = meanmean.size, fill = model)) +
+  geom_histogram(binwidth = 0.08, color = "black", size = 0.1, position="identity")+
+  scale_fill_manual(values =  alpha(c("grey"), 0.5),
+                    name = "Probability Model")+
+  labs(x = NULL, y = NULL) +
+  scale_x_continuous(expand = c(0,0), labels = unit_format(unit = "", scale = 1e-4), breaks = c(10000, 30000)) +
+  scale_y_continuous(expand = c(0,0), breaks = c(0, 2, 4, 6))+
+  coord_cartesian(ylim = c(0,6))+
+  geom_hline(yintercept = mean(GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 7]), color = "purple", linetype = "longdash") +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        plot.margin = unit(c(0, 0.1, 0, 0), "cm")) 
+
+mean_7 <- ggplot(GF_data[GF_data$Food_Deprivation_Length == 7,], aes(x = "", y = avg_grp_size))+
+  geom_boxplot(fill = "gray99", outlier.shape = NA)+
+  geom_jitter(height = 0, width = 0.1, size = 0.5)+
+  scale_y_continuous(expand = c(0,0), breaks = c(0, 2, 4, 6))+
+  coord_cartesian(ylim = c(0,6))+
+  theme(legend.position = "none",
+        axis.ticks.x = element_blank())+
+  labs(x = NULL, y = "mean group size") +
+  stat_summary(fun = base::mean, geom = "errorbar", aes(ymax = after_stat(y), ymin = after_stat(y)), color = "purple",  width = 0.75, linetype = "longdash")
+
+plot_grid(mean_7, mean_7_null_only, rel_widths = c(1.25, 1.5), align = "h")
+```
+
+**E** A boxplot representing the mean group sizes observed in each trial (left) and a histogram of the mean group sizes for each simulated dataset with the same number of trials as the experimental
+data of the null hypothesis where each slug selects an anemone independently of each other (right). The purple dashed line represents the mean group size of the experimental dataset. The observed mean
+does not occur within the distribution of the simulated data.
+
+```{r Fig.1f}
+mean_7_null_only <- ggplot(GF_simu_7[GF_simu_7$model == "equal",], aes(y = meanmax.size, fill = model)) +
+  geom_histogram(binwidth = 0.08, color = "black", size = 0.1, position="identity")+
+  scale_fill_manual(values =  alpha(c("grey"), 0.5),
+                    name = "Probability Model")+
+  labs(x = NULL, y = NULL) +
+  scale_x_continuous(expand = c(0,0), labels = unit_format(unit = "", scale = 1e-4), breaks = c(10000, 30000)) +
+  scale_y_continuous(expand = c(0,0), breaks = c(0, 2, 4, 6))+
+  coord_cartesian(ylim = c(0,6))+
+  geom_hline(yintercept = mean(GF_data$max_group_size[GF_data$Food_Deprivation_Length == 7]), color = "purple", linetype = "longdash") +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        plot.margin = unit(c(0, 0.1, 0, 0), "cm")) 
+
+mean_7 <- ggplot(GF_data[GF_data$Food_Deprivation_Length == 7,], aes(x = "", y = max_group_size))+
+  geom_boxplot(fill = "gray99", outlier.shape = NA)+
+  geom_jitter(height = 0, width = 0.1, size = 0.5)+
+  scale_y_continuous(expand = c(0,0), breaks = c(0, 2, 4, 6))+
+  coord_cartesian(ylim = c(0,6))+
+  theme(legend.position = "none",
+        axis.ticks.x = element_blank())+
+  labs(x = NULL, y = "max group size") +
+  stat_summary(fun = base::mean, geom = "errorbar", aes(ymax = after_stat(y), ymin = after_stat(y)), color = "purple",  width = 0.75, linetype = "longdash")
+
+plot_grid(mean_7, mean_7_null_only, rel_widths = c(1.25, 1.5), align = "h")
+```
+
+**F** The same plots as **E**, using the maximum group size observed. Similarly, the observed mean of the max group sizes in the dataset does not occur in the simulated data. The simulated data sets
+have units of 10,000 datasets.
+
+### Fig. 2 Behavior in 2-alternative choice tasks.
+
+```{r Fig.2b}
+choice_data_binom %>%
+  filter(Choice_1 %in% c("Feeding_Conspecific", "Feeding_Conspecific+Slime_Trail", "Slime_Trail")) %>%
+  filter(total_trial > 14) %>%
+  mutate(manip = case_match(Choice_1, 
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Slime_Trail" ~ "ST")) %>%
+  mutate(manip = factor(manip, levels = c("ST", "FC", "FC + ST"))) %>%
+  mutate(Acclimation = case_match(Acclimation,
+                                  "asw+anemone" ~ "ATW",
+                                  "asw" ~ "ASW")) %>%
+  ggplot(aes(x = manip, y = prob_sucess, fill = Acclimation)) +
+  geom_col(position = position_dodge(preserve = "single"), 
+           color = "black") +
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
+  geom_errorbar(aes(ymin = CI_95_lower, ymax = CI_95_upper), position = position_dodge(preserve = "single", 0.9), width = 0.5)+
+  scale_y_continuous(expand = c(0,0)) +
+  scale_fill_manual(values = c("pink", "white")) +
+  labs(y = "probability of social selection", x = NULL) +
+  coord_cartesian(ylim = c(0,1)) +
+  theme(legend.position = "none")
+```
+
+**B** Bar plots showing the proportion of animals that selected the manipulated anemone for each of the choices depicted in A. The red dashed line indicates random choice. Error bars represent 95%
+credible intervals of the binomial test. Pink bars represent slugs that were acclimated in filtered ASW and white bars represent slugs acclimated in anemone-treated water (ATW). All choices were not
+significantly different from random chance, except FC when acclimated in ASW which was selected lower than chance, meaning the slugs preferred an anemone without a feeding conspecific (8/30, p =
+0.016).
+
+```{r Fig.2d}
+choice_data_binom %>%
+  filter(Choice_1 %in% c("Bisected_Anemone", "Munched_Anemone", "Munched_Anemone+Slime_Trail")) %>%
+  filter(total_trial > 14) %>%
+  mutate(manip = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST")) %>%
+mutate(manip = factor(manip, levels = c("BA", "MA", "MA + ST"))) %>%
+  ggplot(aes(x = manip, y = prob_sucess, fill = Acclimation)) +
+  geom_col(position = position_dodge(), color = "black")+
+  geom_errorbar(aes(ymin = CI_95_lower, ymax = CI_95_upper), position = position_dodge(preserve = "single", 0.9), width = 0.5)+
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
+  scale_fill_manual(values = c("pink", "white")) +
+  labs(y = "probability of social selection", x = NULL) +
+  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(expand = c(0,0))+
+  theme(legend.position = "none")
+```
+
+**D** Bar plots showing the same as in **B**. None were significantly different from random chance.
+
+### Fig. 3 There is no difference in group size between
+
+intermediately food-deprived animals and 7-day food-deprived animals
+
+```{r Fig.3a}
+mean_3_simu <- ggplot(GF_simu_3, aes(y = meanmean.size, fill = model)) +
+  geom_histogram(binwidth = 0.08, color = "black", size = 0.1, position="identity")+
+  scale_fill_manual(values =  alpha(c("lightskyblue1", "grey"), 0.5),
+                    name = "Probability Model",
+                    labels = c("SDM", "null"))+
+  labs(x = "# simulated datasets", y = NULL) +
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0))+
+  coord_cartesian(ylim = c(0,6))+
+  geom_hline(yintercept = mean(GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 7]), color = "purple", linetype = "longdash") +
+  geom_hline(yintercept = mean(GF_data$avg_grp_size[GF_data$Food_Deprivation_Length == 3]), color = "purple", linetype = "dotted", linewidth = 1) +
+  theme(legend.position = c(0.5, 0.9),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        plot.margin = unit(c(0, 0.1, 0, 0), "cm"))
+
+mean_3 <- ggplot(GF_data, aes(x = as.factor(Food_Deprivation_Length), y = avg_grp_size))+
+  geom_boxplot(fill = "gray99", outlier.shape = NA)+
+  geom_jitter(height = 0.1, width = 0.2, size = 1)+
+  scale_y_continuous(expand = c(0,0.1))+
+  scale_x_discrete(labels = c("3d", "7d"))+
+  coord_cartesian(ylim = c(0,6))+
+  theme(legend.position = "none")+
+  stat_summary(fun = base::mean, geom = "errorbar", aes(ymax = after_stat(y), ymin = after_stat(y)), 
+               color = "purple",  width = 0.85, linetype = c("dotted", "longdash"), linewidth = c(1, 0.5)) +
+  stat_compare_means(aes(label = after_stat(p.signif)), method = "t.test", label.x = 1.5, label.y = 4.5)+
+  labs(x = "food\ndeprivation", y = "mean group size")
+  
+plot_grid(mean_3, mean_3_simu, rel_widths = c(1.5, 2.5), align = "h")
+```
+
+**A** Boxplot of the mean group size for trials that were 3-days food-deprived and 7-days food-deprived (left). Histogram of the dataset mean of the mean group sizes observed in 10,000 simulated
+datasets (right). The light blue bars represent the parameterized social dining model (SDM), and the grey bars represent the null model. The dotted purple line is the experimental dataset mean for the
+3-day food-deprived animals and the dashed purple line is the experimental mean for the 7-days food-deprived animals. There is no difference between the experimental means and they fall within the SDM
+simulated dataset means and do not overlap with the null simulated dataset means.
+
+```{r Fig.3b}
+max_3_simu <- ggplot(GF_simu_3, aes(y = meanmax.size, fill = model)) +
+  geom_histogram(binwidth = 0.08, color = "black", size = 0.1, position="identity")+
+  scale_fill_manual(values =  alpha(c("lightskyblue1", "grey"), 0.5),
+                    name = "Probability Model")+
+  labs(x = "# simulated datasets", y = NULL) +
+  scale_x_continuous(expand = c(0,0), breaks = c(10000, 25000)) +
+  scale_y_continuous(expand = c(0,0))+
+  coord_cartesian(ylim = c(0,6))+
+  geom_hline(yintercept = mean(GF_data$max_group_size[GF_data$Food_Deprivation_Length == 7]), color = "purple", linetype = "longdash") +
+  geom_hline(yintercept = mean(GF_data$max_group_size[GF_data$Food_Deprivation_Length == 3]), color = "purple", linetype = "dotted", linewidth = 1) +
+  theme(legend.position = "none",
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.y = element_blank(),
+        plot.margin = unit(c(0, 0.1, 0, 0), "cm"))
+
+max_3 <- ggplot(GF_data, aes(x = as.factor(Food_Deprivation_Length), y = max_group_size))+
+  geom_boxplot(fill = "gray99", outlier.shape = NA)+
+  geom_jitter(height = 0.1, width = 0.2, size = 1)+
+  scale_y_continuous(expand = c(0,0.1))+
+  scale_x_discrete(labels = c("3d", "7d"))+
+  coord_cartesian(ylim = c(0,6))+
+  theme(legend.position = "none")+
+  stat_summary(fun = base::mean, geom = "errorbar", aes(ymax = after_stat(y), ymin = after_stat(y)), 
+               color = "purple",  width = 0.85, linetype = c("dotted", "longdash"), linewidth = c(1, 0.5)) +
+  stat_compare_means(aes(label = after_stat(p.signif)), method = "t.test", label.x = 1.5, label.y = 5.5)+
+  labs(x = "food\ndeprivation", y = "max group size")
+
+plot_grid(max_3, max_3_simu, rel_widths = c(1.5, 2.5), align = "h")
+```
+
+**B** Similar plots as A for the dataset mean of the maximum group sizes.
+
+```{r Fig.3c}
+choice_data_binom_FDL3 %>%
+  mutate(manip = case_match(Choice_1, 
+                            "Bisected_Anemone" ~ "BA", 
+                            "Feeding_Conspecific" ~ "FC", 
+                            "Feeding_Conspecific+Slime_Trail" ~ "FC + ST", 
+                            "Munched_Anemone" ~ "MA", 
+                            "Munched_Anemone+Slime_Trail" ~ "MA + ST", 
+                            "Slime_Trail" ~ "ST")) %>%
+  mutate(manip = factor(manip, levels = c("ST", "MA", "FC + ST"))) %>%
+  ggplot(aes(x = manip, y = prob_sucess)) +
+  geom_col(position = position_dodge(), color = "black", fill = "white")+
+  geom_errorbar(aes(ymin = CI_95_lower, ymax = CI_95_upper), position = position_dodge(preserve = "single", 0.9), width = 0.5)+
+  geom_hline(yintercept = 0.5, linetype = "dashed", color = "red")+
+  labs(y = "probability of social selection", x = NULL) +
+  scale_y_continuous(expand = c(0,0)) +
+  coord_cartesian(ylim = c(0,1))
+```
+
+**C** The probability of selecting the manipulated anemone in 2-alternative choice assays comparing feeding conspecifics and slime trails (FC + ST), anemones previously fed on by a conspecific (MA)
+and anemones with slime trails (ST). None were significantly different from random chance (0.5).
+
+### Fig. 4 The choice to feed socially is not consistent within individuals
+
+```{r Fig.4b}
+ID_data2 <- ID_data %>%
+  mutate_at(c('Animal'), as.factor) %>%
+  pivot_wider(id_cols = c(Animal, Circular_configuration), names_from = trial_2AC, names_prefix = "T_", values_from = choice) %>%
+  na.omit() %>%
+  # mutate(sum1_4 = rowSums(select(., starts_with("T_")))) %>%
+  arrange(Circular_configuration, T_1, T_2, T_3, T_4)
+ID_data2$Animal <- factor(ID_data2$Animal, levels = ID_data2$Animal)
+ID_data2 <- ID_data2 %>%
+  mutate(new_ID = row_number())
+
+ID_CC_all <- ID_data2 %>%
+  pivot_longer(cols = -c(Animal, new_ID), names_to = "experiment", values_to = "choice") %>%
+  ggplot(aes(y = as.factor(new_ID), x = experiment, fill = as.factor(choice))) +
+  geom_tile(color = "black") +
+  # geom_text(aes(label = choice)) +
+  scale_fill_manual(values = c("grey", "white"), 
+                    name = "Choice", 
+                    labels = c("grouped", "alone", "NA")) +
+  scale_x_discrete(labels = c(
+    "Circular_configuration" = "GF", "T_1" = "T1", "T_2" = "T2", "T_3" = "T3", "T_4" ="T4")) +
+  theme(legend.position = "none") +
+  labs(y = "Animal ID", x = NULL)
+
+
+ID_data3 <- ID_data2 %>%
+  arrange(T_1, T_2, T_3, T_4) %>%
+  mutate(new_new_ID = row_number())
+
+ID_T1_all <- ID_data3 %>%
+  pivot_longer(cols = -c(Animal, new_new_ID, new_ID), names_to = "experiment", values_to = "choice") %>%
+  ggplot(aes(y = as.factor(new_new_ID), x = experiment, fill = as.factor(choice))) +
+  geom_tile(color = "black") +
+  # geom_text(aes(label = choice)) +
+  scale_fill_manual(values = c("grey", "white"), 
+                    name = "Choice", 
+                    labels = c("alone", "social")) +
+  scale_x_discrete(labels = c(
+    "Circular_configuration" = "GF", "T_1" = "T1", "T_2" = "T2", "T_3" = "T3", "T_4" ="T4")) 
+
+legend <- get_legend(ID_T1_all)
+
+ID_T1_all <- ID_data3 %>%
+  pivot_longer(cols = -c(Animal, new_new_ID, new_ID), names_to = "experiment", values_to = "choice") %>%
+  ggplot(aes(y = as.factor(new_new_ID), x = experiment, fill = as.factor(choice))) +
+  geom_tile(color = "black") +
+  # geom_text(aes(label = choice)) +
+  scale_fill_manual(values = c("grey", "white"), 
+                    name = "Choice", 
+                    labels = c("alone", "social")) +
+  scale_x_discrete(labels = c(
+    "Circular_configuration" = "GF", "T_1" = "T1", "T_2" = "T2", "T_3" = "T3", "T_4" ="T4")) +
+  theme(legend.position = "none") +
+  scale_y_discrete(labels = ID_data3$new_ID) +
+  labs(y = "Animal ID", x = NULL)
+
+plot_grid(ID_CC_all, ID_T1_all, legend, rel_widths = c(1, 1, 0.5), align = "h", ncol = 3)
+```
+
+**B** A plot showing the choices of each individual animal in the 5 different assays organized by their choice in the GF assay (left) and their choice in the T1 assay (right).
+
+```{r Fig.4c}
+ID_data %>%
+  pivot_wider(id_cols = c(Animal, Circular_configuration), names_from = trial_2AC, names_prefix = "T_", values_from = choice) %>%
+  mutate(sum1_4 = rowSums(dplyr::select(., starts_with("T_"))),
+         prop_1 = sum1_4/4) %>%
+  na.omit() %>%
+  ggplot(aes(x = as.factor(sum1_4), fill = as.factor(Circular_configuration))) +
+  geom_bar(position = position_dodge(preserve = "single"), color = "black")+
+  scale_fill_manual(values = c("grey", "white"),
+                    labels = c("fed alone in GF", "feed socially in GF"),
+                    name = "")+
+  theme(legend.position = c(0.82, 0.8)) +
+  scale_y_continuous(expand = c(0,0))+
+  labs(y = "# of animals", x = "# trials social option selected")
+```
+
+**C** A histogram showing the number of animals that fed socially in the 2-alternative assays (T1-T4) 0 -- 4 times. White represents animals that fed alone in the GF assay and grey represents animals
+that fed socially in the GF assay. The distribution is not bimodal and animals seem to randomly switch between feeding socially and alone.
